@@ -1,4 +1,3 @@
-use std::collections::linked_list::{Cursor, LinkedList};
 use std::sync::RwLock;
 
 /// A structure which allows for the use of one iterator as though it were multiple
@@ -10,8 +9,7 @@ pub struct HistoryIter<I: Iterator> {
     inner: I,
 
     /// History of consumed items
-    history: LinkedList<I::Item>,
-    // TODO: Use forbidden magic to intelligently pop items from the back of the history
+    history: Vec<I::Item>,
 }
 
 impl<I> HistoryIter<I>
@@ -22,7 +20,7 @@ where
     pub fn new(iter: I) -> Self {
         Self {
             inner: iter,
-            history: LinkedList::new(),
+            history: Vec::new(),
         }
     }
 }
@@ -37,7 +35,7 @@ where
         let next = self.inner.next();
 
         if let Some(item) = next.clone() {
-            self.history.push_front(item);
+            self.history.push(item);
         }
 
         next
@@ -45,15 +43,12 @@ where
 }
 
 /// A view into a [`HistoryIter`]
-#[derive(Debug, Clone)]
 pub struct HistoryIterView<'s, I: Iterator> {
     /// The underlying [`HistoryIter`]
     source: &'s RwLock<HistoryIter<I>>,
 
-    /// Cursor into the source's history
-    ///
-    /// Its use as unsafe, since it should only be used when we have a read lock on `source`
-    cursor: Cursor<'s, I::Item>,
+    /// Index into the source's history
+    current: usize,
 }
 
 impl<'s, I> HistoryIterView<'s, I>
@@ -65,13 +60,22 @@ where
     pub fn new(source: &'s RwLock<HistoryIter<I>>) -> Self {
         Self {
             source,
-            // This is fine because the cursor is only used when `self.source` is read-locked
-            cursor: unsafe { std::mem::transmute(source.read().unwrap().history.cursor_back()) },
+            current: 0,
         }
     }
 
     pub fn is_caught_up(&self) -> bool {
-        self.cursor.peek_next().is_none()
+        self.source.read().unwrap().history.get(self.current).is_none()
+    }
+}
+
+impl<'s, I> Clone for HistoryIterView<'s, I>
+where
+    I: Iterator,
+    I::Item: Clone,
+{
+    fn clone(&self) -> Self {
+        Self::new(self.source)
     }
 }
 
@@ -82,16 +86,14 @@ where
 {
     type Item = I::Item;
     fn next(&mut self) -> Option<I::Item> {
-        if self.is_caught_up() {
+        let ret = if self.is_caught_up() {
             self.source.write().unwrap().next()
         } else {
-            let lock = self.source.read();
-            self.cursor.move_next();
-            let item = self.cursor.current().cloned();
-            drop(lock);
+            self.source.read().unwrap().history.get(self.current).cloned()
+        };
+        self.current += 1;
 
-            item
-        }
+        ret
     }
 }
 
@@ -120,5 +122,47 @@ where
 {
     fn view(&self) -> HistoryIterView<I> {
         HistoryIterView::new(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SOURCE: &[usize] = &[1, 2, 3];
+
+    #[test]
+    fn master_iterates() {
+        let iter = SOURCE.iter().into_history();
+        let mut lock = iter.write().unwrap();
+
+        for item in SOURCE {
+            assert_eq!(
+                lock.next(),
+                Some(item)
+            );
+        }
+        assert_eq!(
+            lock.next(),
+            None
+        );
+    }
+
+    #[test]
+    fn view_iterates() {
+        let iter = SOURCE.iter().into_history();
+        let mut view = iter.view();
+
+        eprintln!("{:#?}", iter);
+        for item in SOURCE {
+            assert_eq!(
+                view.next(),
+                Some(item),
+            );
+        }
+        assert_eq!(
+            view.next(),
+            None
+        );
     }
 }

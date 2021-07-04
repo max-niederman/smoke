@@ -59,14 +59,11 @@ impl<T, const N: usize> ArrayVec<T, N> {
         }
     }
 
-    fn len(&self) -> usize {
-        self.length
-    }
-
     fn is_full(&self) -> bool {
         self.length >= N
     }
 
+    #[cfg(test)]
     fn clear(&mut self) {
         self.length = 0;
     }
@@ -85,24 +82,29 @@ impl<T, const N: usize> Deref for ArrayVec<T, N> {
     }
 }
 
-#[test]
-fn array_vec_grows() {
-    let mut av: ArrayVec<u8, 4> = ArrayVec::new();
-    assert_eq!(av.len(), 0);
-    assert_eq!(&av.deref(), &[]);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    av.push(0);
-    assert_eq!(av.len(), 1);
-    assert_eq!(&av.deref(), &[0]);
+    #[test]
+    fn array_vec_grows() {
+        let mut av: ArrayVec<u8, 4> = ArrayVec::new();
+        assert_eq!(av.len(), 0);
+        assert_eq!(&av.deref(), &[]);
 
-    av.push(0);
-    av.push(0);
-    av.push(0);
-    assert_eq!(av.len(), 4);
-    assert!(av.is_full());
-    assert_eq!(&av.deref(), &[0, 0, 0, 0]);
+        av.push(0);
+        assert_eq!(av.len(), 1);
+        assert_eq!(&av.deref(), &[0]);
 
-    av.clear();
-    assert_eq!(av.len(), 0);
-    assert_eq!(&av.deref(), &[]);
+        av.push(0);
+        av.push(0);
+        av.push(0);
+        assert_eq!(av.len(), 4);
+        assert!(av.is_full());
+        assert_eq!(&av.deref(), &[0, 0, 0, 0]);
+
+        av.clear();
+        assert_eq!(av.len(), 0);
+        assert_eq!(&av.deref(), &[]);
+    }
 }
