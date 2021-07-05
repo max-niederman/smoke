@@ -171,48 +171,51 @@ mod token_parsers {
 
 #[cfg(test)]
 mod tests {
-    use super::token_parsers::TokenParser;
     use super::*;
     use crate::lexer::token::Token::*;
 
     #[test]
-    fn parses_static_tokens() {
+    fn parses_tokens() {
         macro_rules! token_pairs {
-            ($( $string:expr => [ $( $tokens:expr ),* ] ),*,) => {
-                &[ $( ($string, &[$( $tokens, )*]) ),*, ]
+            ($( $string:expr => [ $( $result:expr ),* ] ),*,) => {
+                &[ $( ($string, &[$( $result, )*]) ),*, ]
             }
         }
 
-        const TOKENS: &[(&str, &[Token])] = token_pairs![
+        const TOKENS: &[(&str, &[(&str, Token)])] = token_pairs![
             // Braces
-            "(" => [ParenLeft], ")" => [ParenRight],
-            "{" => [CurlyLeft], "}" => [CurlyRight],
-            "[" => [SquareLeft], "]" => [SquareRight],
+            "(" => [("(", ParenLeft)], ")" => [(")", ParenRight)],
+            "{" => [("{", CurlyLeft)], "}" => [("}", CurlyRight)],
+            "[" => [("[", SquareLeft)], "]" => [("]", SquareRight)],
 
             // Operators
-            "," => [Comma],
-            "." => [Dot],
-            "-" => [Minus], "+" => [Plus],
-            "/" => [Slash], "*" => [Star],
-            "=" => [Equal], "==" => [Equal, EqualEqual],
-            "!" => [Bang], "!=" => [Bang, BangEqual],
-            ">" => [Greater], ">=" => [Greater, GreaterEqual],
-            "<" => [Less], "<=" => [Less, LessEqual],
+            "," => [(",", Comma)],
+            "." => [(".", Dot)],
+            "-" => [("-", Minus)], "+" => [("+", Plus)],
+            "/" => [("/", Slash)], "*" => [("*", Star)],
+            "=" => [("=", Equal)], "==" => [("=", Equal), ("==", EqualEqual)],
+            "!" => [("!", Bang)], "!=" => [("!", Bang), ("!=", BangEqual)],
+            ">" => [(">", Greater)], ">=" => [(">", Greater), (">=", GreaterEqual)],
+            "<" => [("<", Less)], "<=" => [("<", Less), ("<=", LessEqual)],
 
             // Keywords
-            "fn" => [Function], "return" => [Return],
-            "let" => [Let],
-            "if" => [If], "else" => [Else],
-            "for" => [For], "while" => [While],
+            "fn" => [("fn", Function)], "return" => [("return", Return)],
+            "let" => [("let", Let)],
+            "if" => [("if", If)], "else" => [("else", Else)],
+            "for" => [("for", For)], "while" => [("while", While)],
 
-            ";" => [Semicolon],
+            ";" => [(";", Semicolon)],
         ];
 
         for (src, correct) in TOKENS {
-            let parses = token_parsers::Static::parse(&mut src.chars());
+            let mut parses = Token::parse_from(&mut src.chars());
+            parses.sort_by_key(|(src, _)| src.len());
 
             assert!(
-                parses.iter().map(|(_, tk)| tk).eq(correct.iter()),
+                parses.iter().cloned().take(correct.len()).eq(correct
+                    .iter()
+                    .cloned()
+                    .map(|(src, tk)| (src.to_string(), tk))),
                 "Parser results were incorrect\nParser Results: {:#?}\nCorrect Results: {:#?}",
                 parses,
                 correct,

@@ -48,9 +48,9 @@ where
         }
 
         let mut parsed = Token::parse_from(&mut self.source.clone());
-
         parsed.sort_by_key(|(src, _)| src.len());
-        let (src, token) = parsed.pop()?;
+
+        let (src, token) = parsed.remove(0);
 
         // Consume the token's characters from the source
         self.source.advance_by(src.len()).unwrap();
