@@ -6,13 +6,47 @@
 mod lexer;
 mod utils;
 
-use std::io::{self, BufRead};
+use std::{
+    env, fs,
+    io::{self, BufRead},
+};
+
+fn get_tokens(args: &[String]) -> io::Result<Vec<lexer::token::TokenExt>> {
+    use lexer::{Analysis, AnalysisMeta};
+
+    if let Some(filename) = args.get(1) {
+        let file = fs::read_to_string(filename)?;
+
+        let meta = AnalysisMeta {
+            file: Some(filename.into()),
+            ..Default::default()
+        };
+
+        Ok(Analysis::new(file.chars(), meta)
+            .map(Result::unwrap)
+            .collect())
+    } else {
+        let mut line = String::new();
+        io::stdin().lock().read_line(&mut line)?;
+
+        Ok(Analysis::new(line.chars(), AnalysisMeta::default())
+            .map(Result::unwrap)
+            .collect())
+    }
+}
 
 fn main() -> io::Result<()> {
-    let stdin = io::stdin();
-    loop {
-        let tokens: Vec<_> =
-            lexer::Analysis::new(stdin.lock().lines().next().unwrap()?.chars()).collect();
+    let args: Vec<_> = env::args().collect();
+
+    if args.len() > 1 {
+        let tokens = get_tokens(&args);
         eprintln!("Tokens: {:#?}", tokens);
+    } else {
+        loop {
+            let tokens = get_tokens(&args);
+            eprintln!("Tokens: {:#?}", tokens);
+        }
     }
+
+    Ok(())
 }
