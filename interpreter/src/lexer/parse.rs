@@ -1,13 +1,13 @@
 use super::token::Token;
 
 pub trait Parse: Sized {
-    fn parse_from<I>(input: I) -> Vec<(String, Self)>
+    fn parse_from<I>(input: &mut I) -> Vec<(String, Self)>
     where
         I: Iterator<Item = char> + Clone;
 }
 
 impl Parse for Token {
-    fn parse_from<I>(input: I) -> Vec<(String, Self)>
+    fn parse_from<I>(input: &mut I) -> Vec<(String, Self)>
     where
         I: Iterator<Item = char> + Clone,
     {
@@ -24,9 +24,7 @@ impl Parse for Token {
             }
         }
 
-        use_parser![
-            token_parsers::Static,
-        ];
+        use_parser![token_parsers::Whitespace, token_parsers::Static,];
 
         ret
     }
@@ -100,9 +98,9 @@ mod token_parsers {
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::token::Token::*;
-    use super::*;
     use super::token_parsers::TokenParser;
+    use super::*;
+    use crate::lexer::token::Token::*;
 
     #[test]
     fn parses_static_tokens() {

@@ -2,11 +2,13 @@ pub mod error;
 pub mod parse;
 pub mod token;
 
-use crate::utils::{history_iter::HistoryIter, prelude::*};
 use error::*;
 use parse::Parse;
-use std::sync::RwLock;
-use token::{lexeme::{Lexeme, LexemeLocation}, Token, TokenExt};
+use std::iter::Peekable;
+use token::{
+    lexeme::{Lexeme, LexemeLocation},
+    Token, TokenExt,
+};
 
 /// A lexical analysis
 #[derive(Debug)]
@@ -15,7 +17,7 @@ where
     S: Iterator<Item = char>,
 {
     /// The source code to be analyzed
-    source: RwLock<HistoryIter<S>>,
+    source: Peekable<S>,
 
     /// Position in the source (line, column)
     position: (usize, usize),
@@ -23,11 +25,11 @@ where
 
 impl<S> Analysis<S>
 where
-    S: Iterator<Item = char>,
+    S: Iterator<Item = char> + Clone,
 {
     pub fn new(source: S) -> Self {
         Self {
-            source: source.into_history(),
+            source: source.peekable(),
             position: (0, 0),
         }
     }
@@ -35,24 +37,33 @@ where
 
 impl<S> Iterator for Analysis<S>
 where
-    S: Iterator<Item = char>,
+    S: Iterator<Item = char> + Clone,
 {
     type Item = Result<TokenExt>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut parsed = Token::parse_from(self.source.view());
-        parsed.sort_by_key(|(src, _)| src.len());
+        // Consume any leading whitespace before parsing
+        while self.source.peek()?.is_whitespace() {
+            self.source.next();
+        }
 
-        let last = parsed.pop()?;
+        let mut parsed = Token::parse_from(&mut self.source.clone());
+
+        parsed.sort_by_key(|(src, _)| src.len());
+        let (src, token) = parsed.pop()?;
+
+        // Consume the token's characters from the source
+        self.source.advance_by(src.len()).unwrap();
+
         Some(Ok(TokenExt {
-            token: last.1,
+            token,
             lexeme: Lexeme {
-                content: last.0,
+                content: src,
                 location: LexemeLocation {
                     position: Some(self.position),
                     ..Default::default()
-                }
-            }
+                },
+            },
         }))
     }
 }
