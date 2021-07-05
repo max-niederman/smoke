@@ -24,7 +24,14 @@ impl Parse for Token {
             }
         }
 
-        use_parser![token_parsers::Whitespace, token_parsers::Static,];
+        // NOTE: This order is important, since parser results are appended in this order
+        use_parser![
+            token_parsers::Static,
+            token_parsers::Identifier,
+            token_parsers::Str,
+            token_parsers::Float,
+            token_parsers::Integer,
+        ];
 
         ret
     }
@@ -92,6 +99,72 @@ mod token_parsers {
             };
 
             ret
+        };
+
+        Identifier : |input| {
+            let mut input = input.peekable();
+
+            let mut ident = String::new();
+            if let Some(first) = input.next_if(|ch| *ch == '_' || ch.is_alphabetic()) {
+                ident.push(first);
+
+                loop {
+                    match input.next() {
+                        Some(ch) if ch == '_' || ch.is_alphanumeric() => ident.push(ch),
+                        _ => break,
+                    }
+                }
+
+                // NOTE: This should really return all possible identifiers, but just the longest one is fine
+                // since it would be used anyway
+                vec![(
+                    ident.clone(),
+                    Token::Identifier(ident)
+                )]
+            } else {
+                vec![]
+            }
+        };
+
+        Str : |input| {
+            let mut input = input.peekable();
+
+            if input.next() == Some('"') {
+                let literal: String = input.take_while(|ch| *ch != '"').collect();
+
+                vec![(
+                    format!("\"{}\"", literal),
+                    Token::Str(literal),
+                )]
+            } else {
+                vec![]
+            }
+        };
+
+        Float : |input| {
+            let src: String = input.take_while(|ch| !ch.is_whitespace()).collect();
+
+            if let Ok(literal) = src.parse::<f64>() {
+                vec![(
+                    src,
+                    Token::Float(literal),
+                )]
+            } else {
+                vec![]
+            }
+        };
+
+        Integer : |input| {
+            let src: String = input.take_while(|ch| !ch.is_whitespace()).collect();
+
+            if let Ok(literal) = src.parse::<isize>() {
+                vec![(
+                    src,
+                    Token::Integer(literal),
+                )]
+            } else {
+                vec![]
+            }
         };
     });
 }
