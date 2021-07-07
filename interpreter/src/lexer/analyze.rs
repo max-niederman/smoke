@@ -29,8 +29,8 @@ impl Parse for Token {
             token_parsers::Static,
             token_parsers::Identifier,
             token_parsers::Str,
-            token_parsers::Float,
             token_parsers::Integer,
+            token_parsers::Float,
         ];
 
         ret
@@ -95,6 +95,10 @@ mod token_parsers {
                 "if" => If, "else" => Else,
                 "for" => For, "while" => While,
 
+                // Literals
+                "true" => True, "false" => False,
+                "nil" => Nil,
+
                 ";" => Semicolon,
             };
 
@@ -144,6 +148,8 @@ mod token_parsers {
         Float : |input| {
             let src: String = input.take_while(|ch| !ch.is_whitespace()).collect();
 
+            if src.starts_with("-") { return vec![] }
+
             if let Ok(literal) = src.parse::<f64>() {
                 vec![(
                     src,
@@ -156,6 +162,8 @@ mod token_parsers {
 
         Integer : |input| {
             let src: String = input.take_while(|ch| !ch.is_whitespace()).collect();
+
+            if src.starts_with("-") { return vec![] }
 
             if let Ok(literal) = src.parse::<isize>() {
                 vec![(

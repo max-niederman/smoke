@@ -49,6 +49,9 @@ pub enum Token {
     While,
 
     // Literals
+    True,
+    False,
+    Nil,
     Identifier(String),
     Str(String),
     Float(f64),

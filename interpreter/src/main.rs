@@ -4,6 +4,7 @@
 #![feature(maybe_uninit_uninit_array)]
 
 mod lexer;
+mod parser;
 mod utils;
 
 use std::{
@@ -35,16 +36,28 @@ fn get_tokens(args: &[String]) -> io::Result<Vec<lexer::token::TokenExt>> {
     }
 }
 
+fn parse(tokens: &[lexer::token::TokenExt]) -> parser::error::Result<parser::expr::Expression> {
+    use parser::Parsing;
+
+    Parsing::new(tokens.iter().cloned()).parse()
+}
+
 fn main() -> io::Result<()> {
     let args: Vec<_> = env::args().collect();
 
     if args.len() > 1 {
-        let tokens = get_tokens(&args);
+        let tokens = get_tokens(&args)?;
         eprintln!("Tokens: {:#?}", tokens);
+
+        let expr = parse(&tokens);
+        eprintln!("Expression: {:#?}", expr);
     } else {
         loop {
-            let tokens = get_tokens(&args);
+            let tokens = get_tokens(&args)?;
             eprintln!("Tokens: {:#?}", tokens);
+
+            let expr = parse(&tokens);
+            eprintln!("Expression: {:#?}", expr);
         }
     }
 

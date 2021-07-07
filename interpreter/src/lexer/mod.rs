@@ -1,9 +1,9 @@
-pub mod error;
 pub mod analyze;
+pub mod error;
 pub mod token;
 
-use error::*;
 use analyze::Parse;
+pub use error::{Error, Result};
 use std::iter::Peekable;
 use token::{
     lexeme::{Lexeme, LexemeLocation},
@@ -88,8 +88,6 @@ pub struct AnalysisMeta {
 
 impl Default for AnalysisMeta {
     fn default() -> Self {
-        Self {
-            file: None,
-        }
+        Self { file: None }
     }
 }

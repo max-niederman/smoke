@@ -1,6 +1,6 @@
+use super::array_vec::ArrayVec;
 use std::io::{self, Read};
 use std::iter::FilterMap;
-use super::array_vec::ArrayVec;
 
 #[derive(Debug, Clone)]
 pub struct CharIter<I: Iterator<Item = u8>> {
@@ -9,9 +9,7 @@ pub struct CharIter<I: Iterator<Item = u8>> {
 
 impl<I: Iterator<Item = u8>> CharIter<I> {
     pub fn new(iter: I) -> Self {
-        Self {
-            iter
-        }
+        Self { iter }
     }
 }
 
@@ -61,8 +59,6 @@ mod tests {
         let correct = source.chars();
         let from_bytes = CharIter::new(source.bytes());
 
-        assert!(
-            from_bytes.eq(correct)
-        );
+        assert!(from_bytes.eq(correct));
     }
 }
