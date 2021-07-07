@@ -1,9 +1,9 @@
 pub mod error;
-pub mod parse;
+pub mod analyze;
 pub mod token;
 
 use error::*;
-use parse::Parse;
+use analyze::Parse;
 use std::iter::Peekable;
 use token::{
     lexeme::{Lexeme, LexemeLocation},

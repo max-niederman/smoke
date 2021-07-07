@@ -1,6 +1,7 @@
 use std::mem::MaybeUninit;
 use std::ops::Deref;
 
+/// An array-backed, stack-allocated growable vector
 #[derive(Debug)]
 pub struct ArrayVec<T, const N: usize> {
     inner: [MaybeUninit<T>; N],
