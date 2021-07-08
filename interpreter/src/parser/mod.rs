@@ -89,8 +89,7 @@ impl<S: Iterator<Item = TokenExt>> Parsing<S> {
             .token
         {
             Token::Nil => literal!(),
-            Token::True => literal!(),
-            Token::False => literal!(),
+            Token::Bool(_) => literal!(),
             Token::Str(_) => literal!(),
             Token::Integer(_) => literal!(),
             Token::Float(_) => literal!(),
@@ -104,7 +103,7 @@ impl<S: Iterator<Item = TokenExt>> Parsing<S> {
                     Ok(Expression::Grouping(vec![expr]))
                 } else {
                     Err(Error::UnexpectedToken {
-                        expected: "ending parenthese ')'".into(),
+                        expected: "closing delimiter ')'".into(),
                         found: match self.source.next() {
                             Some(tke) => format!("'{}'", tke.lexeme.content),
                             None => "end of source".into(),
@@ -115,7 +114,7 @@ impl<S: Iterator<Item = TokenExt>> Parsing<S> {
 
             _ => Err(Error::UnexpectedToken {
                 expected: "literal or grouping".into(),
-                found: format!("'{}'", self.source.next().unwrap().lexeme.content),
+                found: format!("lexeme '{}'", self.source.next().unwrap().lexeme.content),
             }),
         }
     }

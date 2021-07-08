@@ -96,7 +96,7 @@ mod token_parsers {
                 "for" => For, "while" => While,
 
                 // Literals
-                "true" => True, "false" => False,
+                "true" => Bool(true), "false" => Bool(false),
                 "nil" => Nil,
 
                 ";" => Semicolon,
@@ -106,27 +106,11 @@ mod token_parsers {
         };
 
         Identifier : |input| {
-            let mut input = input.peekable();
+            let ident: String = input.take_while(|ch| *ch == '_' || ch.is_alphanumeric()).collect();
 
-            let mut ident = String::new();
-            if let Some(first) = input.next_if(|ch| *ch == '_' || ch.is_alphabetic()) {
-                ident.push(first);
-
-                loop {
-                    match input.next() {
-                        Some(ch) if ch == '_' || ch.is_alphanumeric() => ident.push(ch),
-                        _ => break,
-                    }
-                }
-
-                // NOTE: This should really return all possible identifiers, but just the longest one is fine
-                // since it would be used anyway
-                vec![(
-                    ident.clone(),
-                    Token::Identifier(ident)
-                )]
-            } else {
-                vec![]
+            match ident.chars().next() {
+                Some(ch) if !ch.is_numeric() => vec![(ident.clone(), Token::Identifier(ident))],
+                _ => vec![],
             }
         };
 
@@ -150,14 +134,11 @@ mod token_parsers {
 
             if src.starts_with("-") { return vec![] }
 
-            if let Ok(literal) = src.parse::<f64>() {
-                vec![(
-                    src,
-                    Token::Float(literal),
-                )]
-            } else {
-                vec![]
-            }
+            src
+                .char_indices()
+                .map(|(i, _)| &src[..=i])
+                .filter_map(|sub| Some((sub.to_string(), Token::Float(sub.parse().ok()?))))
+                .collect()
         };
 
         Integer : |input| {
@@ -165,14 +146,11 @@ mod token_parsers {
 
             if src.starts_with("-") { return vec![] }
 
-            if let Ok(literal) = src.parse::<isize>() {
-                vec![(
-                    src,
-                    Token::Integer(literal),
-                )]
-            } else {
-                vec![]
-            }
+            src
+                .char_indices()
+                .map(|(i, _)| &src[..=i])
+                .filter_map(|sub| Some((sub.to_string(), Token::Integer(sub.parse().ok()?))))
+                .collect()
         };
     });
 }
@@ -190,7 +168,7 @@ mod tests {
             }
         }
 
-        const TOKENS: &[(&str, &[(&str, Token)])] = token_pairs![
+        let tokens: &[(&str, &[(&str, Token)])] = token_pairs![
             // Braces
             "(" => [("(", ParenLeft)], ")" => [(")", ParenRight)],
             "{" => [("{", CurlyLeft)], "}" => [("}", CurlyRight)],
@@ -206,21 +184,26 @@ mod tests {
             ">" => [(">", Greater)], ">=" => [(">", Greater), (">=", GreaterEqual)],
             "<" => [("<", Less)], "<=" => [("<", Less), ("<=", LessEqual)],
 
-            // Keywords
-            "fn" => [("fn", Function)], "return" => [("return", Return)],
-            "let" => [("let", Let)],
-            "if" => [("if", If)], "else" => [("else", Else)],
-            "for" => [("for", For)], "while" => [("while", While)],
+            // Keyword
+            "fn" => [("fn", Function), ("fn", Identifier("fn".into()))],
+
+            // Literals
+            "nil" => [("nil", Nil), ("nil", Identifier("nil".into()))],
+            "true" => [("true", Bool(true)), ("true", Identifier("true".into()))],
+            "false" => [("false", Bool(false)), ("false", Identifier("false".into()))],
+            "0" => [("0", Integer(0)), ("0", Float(0.0))],
+            "0.0" => [("0", Integer(0)), ("0", Float(0.0)), ("0.", Float(0.0)), ("0.0", Float(0.0))],
+            "\"string\"" => [("\"string\"", Str("string".into()))],
 
             ";" => [(";", Semicolon)],
         ];
 
-        for (src, correct) in TOKENS {
+        for (src, correct) in tokens {
             let mut parses = Token::parse_from(&mut src.chars());
             parses.sort_by_key(|(src, _)| src.len());
 
             assert!(
-                parses.iter().cloned().take(correct.len()).eq(correct
+                parses.iter().cloned().eq(correct
                     .iter()
                     .cloned()
                     .map(|(src, tk)| (src.to_string(), tk))),

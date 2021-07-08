@@ -49,15 +49,18 @@ fn main() -> io::Result<()> {
         let tokens = get_tokens(&args)?;
         eprintln!("Tokens: {:#?}", tokens);
 
-        let expr = parse(&tokens);
-        eprintln!("Expression: {:#?}", expr);
+        let expr = parse(&tokens).unwrap();
+        eprintln!("Expression: {}", expr);
     } else {
         loop {
+            eprint!("> ");
             let tokens = get_tokens(&args)?;
-            eprintln!("Tokens: {:#?}", tokens);
+            eprintln!("Tokens: {:#?}", tokens.iter().map(|tke| &tke.token).collect::<Vec<_>>());
 
-            let expr = parse(&tokens);
-            eprintln!("Expression: {:#?}", expr);
+            match parse(&tokens) {
+                Ok(expr) => eprintln!("Expression: {}", expr),
+                Err(err) => eprintln!("Parser error: {:#?}", err),
+            }
         }
     }
 
