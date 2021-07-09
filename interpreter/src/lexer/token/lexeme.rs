@@ -10,19 +10,14 @@ pub struct Lexeme {
 
 /// The location from which a [`Lexeme`] was parsed
 #[derive(Debug, Clone, PartialEq)]
-pub struct LexemeLocation {
-    /// The file wherein the [`Lexeme`] was encountered
-    pub file: Option<std::path::PathBuf>,
+pub enum LexemeLocation {
+    File {
+        /// The file wherein the [`Lexeme`] was encountered
+        path: Option<std::path::PathBuf>,
 
-    /// A tuple containing the line and column numbers of the start of the [`Lexeme`]
-    pub position: Option<(usize, usize)>,
-}
-
-impl Default for LexemeLocation {
-    fn default() -> Self {
-        Self {
-            file: None,
-            position: None,
-        }
-    }
+        /// A tuple containing the line and column numbers of the start of the [`Lexeme`]
+        position: (usize, usize),
+    },
+    Repl,
+    Internal,
 }

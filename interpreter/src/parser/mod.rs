@@ -1,29 +1,32 @@
+pub mod ast;
 pub mod error;
-pub mod expr;
 
 use crate::lexer::token::{Token, TokenExt};
+use ast::{Ast, Operation, Operator};
+use std::convert::TryInto;
 pub use error::{Error, Result};
-use expr::Expression;
 use std::iter::Peekable;
 
 /// A parsing of a stream of [`TokenExt`]s
-pub struct Parsing<S: Iterator<Item = TokenExt>> {
+pub struct Parser<S: Iterator<Item = TokenExt>> {
     /// The source [`TokenExt`] iterator
     source: Peekable<S>,
 }
 
 macro_rules! la_binary {
     ($name:ident, $( $op:pat )|+, $sub:ident) => {
-        fn $name(&mut self) -> Result<Expression> {
+        fn $name(&mut self) -> Result<Ast> {
             let mut expr = self.$sub()?;
 
             while matches!(
                 self.source.peek().map(|tke| tke.token.clone()),
                 Some($( $op )|+)
             ) {
-                expr = Expression::Binary(
-                    self.source.next().unwrap(),
-                    Box::new((expr, self.$sub()?)),
+                expr = Ast::Operation(
+                    Operation::binary(
+                        Operator::try_from_token_binary(&self.source.next().unwrap().token)?,
+                        (expr, self.$sub()?)
+                    )
                 );
             }
 
@@ -32,20 +35,20 @@ macro_rules! la_binary {
     }
 }
 
-impl<S: Iterator<Item = TokenExt>> Parsing<S> {
+impl<S: Iterator<Item = TokenExt>> Parser<S> {
     pub fn new(source: S) -> Self {
         Self {
             source: source.peekable(),
         }
     }
 
-    pub fn parse(&mut self) -> Result<Expression> {
+    pub fn parse(&mut self) -> Result<Ast> {
         self.expression()
     }
 
     // Recursive-descent parser
 
-    fn expression(&mut self) -> Result<Expression> {
+    fn expression(&mut self) -> Result<Ast> {
         self.equality()
     }
 
@@ -58,24 +61,24 @@ impl<S: Iterator<Item = TokenExt>> Parsing<S> {
     la_binary!(term, Token::Plus | Token::Minus, factor);
     la_binary!(factor, Token::Star | Token::Slash, unary);
 
-    fn unary(&mut self) -> Result<Expression> {
+    fn unary(&mut self) -> Result<Ast> {
         if matches!(
             self.source.peek().map(|tke| tke.token.clone()),
             Some(Token::Bang | Token::Minus)
         ) {
-            Ok(Expression::Unary(
-                self.source.next().unwrap(),
-                Box::new(self.unary()?),
-            ))
+            Ok(Ast::Operation(Operation::unary(
+                Operator::try_from_token_unary(&self.source.next().unwrap().token)?,
+                self.unary()?,
+            )))
         } else {
             self.primary()
         }
     }
 
-    fn primary(&mut self) -> Result<Expression> {
+    fn primary(&mut self) -> Result<Ast> {
         macro_rules! literal {
             () => {
-                Ok(Expression::Literal(self.source.next().unwrap()))
+                Ok(Ast::Literal(self.source.next().unwrap().token.try_into()?))
             };
         }
 
@@ -98,13 +101,44 @@ impl<S: Iterator<Item = TokenExt>> Parsing<S> {
                 self.source.next();
                 let expr = self.expression()?;
 
-                if self.source.peek().map(|tke| tke.token.clone()) == Some(Token::ParenRight) {
-                    self.source.next();
-                    Ok(Expression::Grouping(vec![expr]))
+                if self
+                    .source
+                    .next_if(|tke| tke.token == Token::ParenRight)
+                    .is_some()
+                {
+                    Ok(Ast::Grouping(vec![expr]))
                 } else {
                     Err(Error::UnexpectedToken {
                         expected: "closing delimiter ')'".into(),
-                        found: match self.source.next() {
+                        found: match self.source.peek() {
+                            Some(tke) => format!("'{}'", tke.lexeme.content),
+                            None => "end of source".into(),
+                        },
+                    })
+                }
+            }
+            Token::CurlyLeft => {
+                self.source.next();
+                let mut exprs = vec![self.expression()?];
+
+                while self
+                    .source
+                    .next_if(|tke| tke.token == Token::Semicolon)
+                    .is_some()
+                {
+                    exprs.push(self.expression()?);
+                }
+
+                if self
+                    .source
+                    .next_if(|tke| tke.token == Token::CurlyRight)
+                    .is_some()
+                {
+                    Ok(Ast::Grouping(exprs))
+                } else {
+                    Err(Error::UnexpectedToken {
+                        expected: "closing delimiter '}'".into(),
+                        found: match self.source.peek() {
                             Some(tke) => format!("'{}'", tke.lexeme.content),
                             None => "end of source".into(),
                         },
@@ -112,10 +146,43 @@ impl<S: Iterator<Item = TokenExt>> Parsing<S> {
                 }
             }
 
+            Token::Let => {
+                self.source.next();
+
+                Ok(Ast::Declaration {
+                    name: match self
+                        .expect(
+                            |tke| matches!(tke.token, Token::Identifier(_)),
+                            "identifier",
+                        )?
+                        .token
+                    {
+                        Token::Identifier(ident) => ident,
+                        _ => panic!(),
+                    },
+                    value: {
+                        self.expect(|tke| tke.token == Token::Equal, "assignment operator")?;
+                        Box::new(self.expression()?)
+                    },
+                })
+            }
+
             _ => Err(Error::UnexpectedToken {
-                expected: "literal or grouping".into(),
-                found: format!("lexeme '{}'", self.source.next().unwrap().lexeme.content),
+                expected: "expression".into(),
+                found: format!("'{}'", self.source.next().unwrap().lexeme.content),
             }),
         }
+    }
+
+    // Helpers
+
+    fn expect<P: FnMut(&TokenExt) -> bool>(&mut self, pred: P, expected: &str) -> Result<TokenExt> {
+        self.source.next_if(pred).ok_or(Error::UnexpectedToken {
+            expected: expected.into(),
+            found: match self.source.peek() {
+                Some(tke) => format!("'{}'", tke.lexeme.content),
+                None => "end of source".into(),
+            },
+        })
     }
 }

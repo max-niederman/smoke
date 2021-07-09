@@ -5,14 +5,14 @@ pub mod token;
 use analyze::Parse;
 pub use error::{Error, Result};
 use std::iter::Peekable;
-use token::{
+pub use token::{
     lexeme::{Lexeme, LexemeLocation},
     Token, TokenExt,
 };
 
 /// A lexical analysis
 #[derive(Debug, Clone)]
-pub struct Analysis<S>
+pub struct Analyzer<S>
 where
     S: Iterator<Item = char>,
 {
@@ -26,7 +26,7 @@ where
     meta: AnalysisMeta,
 }
 
-impl<S> Analysis<S>
+impl<S> Analyzer<S>
 where
     S: Iterator<Item = char> + Clone,
 {
@@ -39,7 +39,7 @@ where
     }
 }
 
-impl<S> Iterator for Analysis<S>
+impl<S> Iterator for Analyzer<S>
 where
     S: Iterator<Item = char> + Clone,
 {
@@ -72,10 +72,7 @@ where
             token,
             lexeme: Lexeme {
                 content: src,
-                location: LexemeLocation {
-                    file: self.meta.file.clone(),
-                    position: Some(position),
-                },
+                location: self.meta.lexeme_location(position),
             },
         }))
     }
@@ -83,11 +80,28 @@ where
 
 #[derive(Debug, Clone)]
 pub struct AnalysisMeta {
+    pub repl: bool,
     pub file: Option<std::path::PathBuf>,
 }
 
 impl Default for AnalysisMeta {
     fn default() -> Self {
-        Self { file: None }
+        Self {
+            repl: false,
+            file: None,
+        }
+    }
+}
+
+impl AnalysisMeta {
+    fn lexeme_location(&self, position: (usize, usize)) -> LexemeLocation {
+        if self.repl {
+            LexemeLocation::Repl
+        } else {
+            LexemeLocation::File {
+                path: self.file.clone(),
+                position,
+            }
+        }
     }
 }

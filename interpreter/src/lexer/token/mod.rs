@@ -49,12 +49,13 @@ pub enum Token {
     While,
 
     // Literals
-    Identifier(String),
     Nil,
     Bool(bool),
     Integer(isize),
     Float(f64),
     Str(String),
+
+    Identifier(String),
 
     Semicolon,
 }

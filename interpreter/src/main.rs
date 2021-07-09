@@ -13,7 +13,7 @@ use std::{
 };
 
 fn get_tokens(args: &[String]) -> io::Result<Vec<lexer::token::TokenExt>> {
-    use lexer::{Analysis, AnalysisMeta};
+    use lexer::{AnalysisMeta, Analyzer};
 
     if let Some(filename) = args.get(1) {
         let file = fs::read_to_string(filename)?;
@@ -23,23 +23,23 @@ fn get_tokens(args: &[String]) -> io::Result<Vec<lexer::token::TokenExt>> {
             ..Default::default()
         };
 
-        Ok(Analysis::new(file.chars(), meta)
+        Ok(Analyzer::new(file.chars(), meta)
             .map(Result::unwrap)
             .collect())
     } else {
         let mut line = String::new();
         io::stdin().lock().read_line(&mut line)?;
 
-        Ok(Analysis::new(line.chars(), AnalysisMeta::default())
+        Ok(Analyzer::new(line.chars(), AnalysisMeta::default())
             .map(Result::unwrap)
             .collect())
     }
 }
 
-fn parse(tokens: &[lexer::token::TokenExt]) -> parser::error::Result<parser::expr::Expression> {
-    use parser::Parsing;
+fn parse(tokens: &[lexer::token::TokenExt]) -> parser::error::Result<parser::ast::Ast> {
+    use parser::Parser;
 
-    Parsing::new(tokens.iter().cloned()).parse()
+    Parser::new(tokens.iter().cloned()).parse()
 }
 
 fn main() -> io::Result<()> {
@@ -49,16 +49,19 @@ fn main() -> io::Result<()> {
         let tokens = get_tokens(&args)?;
         eprintln!("Tokens: {:#?}", tokens);
 
-        let expr = parse(&tokens).unwrap();
-        eprintln!("Expression: {}", expr);
+        let ast = parse(&tokens).unwrap();
+        eprintln!("Expression: {:#?}", ast);
     } else {
         loop {
             eprint!("> ");
             let tokens = get_tokens(&args)?;
-            eprintln!("Tokens: {:#?}", tokens.iter().map(|tke| &tke.token).collect::<Vec<_>>());
+            eprintln!(
+                "Tokens: {:#?}",
+                tokens.iter().map(|tke| &tke.token).collect::<Vec<_>>()
+            );
 
             match parse(&tokens) {
-                Ok(expr) => eprintln!("Expression: {}", expr),
+                Ok(ast) => eprintln!("Expression: {:#?}", ast),
                 Err(err) => eprintln!("Parser error: {:#?}", err),
             }
         }
