@@ -132,7 +132,7 @@ mod token_parsers {
         Float : |input| {
             let src: String = input.take_while(|ch| !ch.is_whitespace()).collect();
 
-            if src.starts_with("-") { return vec![] }
+            if src.starts_with('-') { return vec![] }
 
             src
                 .char_indices()
@@ -144,7 +144,7 @@ mod token_parsers {
         Integer : |input| {
             let src: String = input.take_while(|ch| !ch.is_whitespace()).collect();
 
-            if src.starts_with("-") { return vec![] }
+            if src.starts_with('-') { return vec![] }
 
             src
                 .char_indices()

@@ -19,5 +19,4 @@ pub enum LexemeLocation {
         position: (usize, usize),
     },
     Repl,
-    Internal,
 }

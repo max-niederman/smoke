@@ -3,8 +3,8 @@ pub mod error;
 
 use crate::lexer::token::{Token, TokenExt};
 use ast::{Ast, Operation, Operator};
-use std::convert::TryInto;
 pub use error::{Error, Result};
+use std::convert::TryInto;
 use std::iter::Peekable;
 
 /// A parsing of a stream of [`TokenExt`]s
@@ -97,53 +97,29 @@ impl<S: Iterator<Item = TokenExt>> Parser<S> {
             Token::Integer(_) => literal!(),
             Token::Float(_) => literal!(),
 
+            Token::Identifier(_) => Ok(Ast::Reference(self.expect_ident()?)),
+
             Token::ParenLeft => {
                 self.source.next();
                 let expr = self.expression()?;
+                self.expect(|tke| tke.token == Token::ParenRight, "closing delimiter ')")?;
 
-                if self
-                    .source
-                    .next_if(|tke| tke.token == Token::ParenRight)
-                    .is_some()
-                {
-                    Ok(Ast::Grouping(vec![expr]))
-                } else {
-                    Err(Error::UnexpectedToken {
-                        expected: "closing delimiter ')'".into(),
-                        found: match self.source.peek() {
-                            Some(tke) => format!("'{}'", tke.lexeme.content),
-                            None => "end of source".into(),
-                        },
-                    })
-                }
+                Ok(Ast::Grouping(vec![expr]))
             }
             Token::CurlyLeft => {
                 self.source.next();
                 let mut exprs = vec![self.expression()?];
 
                 while self
-                    .source
-                    .next_if(|tke| tke.token == Token::Semicolon)
-                    .is_some()
+                    .expect(|tke| tke.token == Token::Semicolon, "semicolon")
+                    .is_ok()
                 {
                     exprs.push(self.expression()?);
                 }
 
-                if self
-                    .source
-                    .next_if(|tke| tke.token == Token::CurlyRight)
-                    .is_some()
-                {
-                    Ok(Ast::Grouping(exprs))
-                } else {
-                    Err(Error::UnexpectedToken {
-                        expected: "closing delimiter '}'".into(),
-                        found: match self.source.peek() {
-                            Some(tke) => format!("'{}'", tke.lexeme.content),
-                            None => "end of source".into(),
-                        },
-                    })
-                }
+                self.expect(|tke| tke.token == Token::CurlyRight, "closing delimiter '}")?;
+
+                Ok(Ast::Grouping(exprs))
             }
 
             Token::Let => {
@@ -166,6 +142,44 @@ impl<S: Iterator<Item = TokenExt>> Parser<S> {
                     },
                 })
             }
+            Token::Function => {
+                self.source.next();
+
+                let name = match self
+                    .expect(
+                        |tke| matches!(tke.token, Token::Identifier(_)),
+                        "function name",
+                    )?
+                    .token
+                {
+                    Token::Identifier(val) => val,
+                    _ => unreachable!(),
+                };
+
+                self.expect(|tke| tke.token == Token::ParenLeft, "opening delimiter '('")?;
+                let mut arguments = Vec::new();
+                while let Ok(ident) = self.expect_ident() {
+                    arguments.push(ident);
+                    if self
+                        .expect(|tke| tke.token == Token::Comma, "argument seperator ','")
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+                self.expect(
+                    |tke| tke.token == Token::ParenRight,
+                    "closing delimiter ')'",
+                )?;
+
+                Ok(Ast::Declaration {
+                    name,
+                    value: Box::new(Ast::Function {
+                        arguments,
+                        body: Box::new(self.expression()?),
+                    }),
+                })
+            }
 
             _ => Err(Error::UnexpectedToken {
                 expected: "expression".into(),
@@ -184,5 +198,18 @@ impl<S: Iterator<Item = TokenExt>> Parser<S> {
                 None => "end of source".into(),
             },
         })
+    }
+
+    fn expect_ident(&mut self) -> Result<String> {
+        match self
+            .expect(
+                |tke| matches!(tke.token, Token::Identifier(_)),
+                "identifier",
+            )?
+            .token
+        {
+            Token::Identifier(val) => Ok(val),
+            _ => unreachable!(),
+        }
     }
 }

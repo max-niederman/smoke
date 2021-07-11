@@ -1,6 +1,7 @@
-use std::convert::TryFrom;
-use crate::parser::{Error, Result};
 use crate::lexer::Token;
+use crate::parser::{Error, Result};
+use crate::*;
+use std::convert::TryFrom;
 
 /// A literal Smoke value
 #[derive(Debug, Clone)]
@@ -12,37 +13,28 @@ pub enum Literal {
     Str(String),
 }
 
-macro_rules! as_variant_method {
-    ($method:ident : $variant:ident => $ret:ty) => {
-        pub const fn $method(&self) -> Option<$ret> {
-            match *self {
-                Self::$variant(val) => Some(val),
-                _ => None,
-            }
-        }
-    };
-}
-
-macro_rules! variant_method {
-    ($method:ident : $variant:pat => $ret:expr) => {
-
-    }
-}
-
 impl Literal {
+    #[allow(dead_code)]
     pub const fn as_nil(&self) -> Option<()> {
         match self {
             Self::Nil => Some(()),
             _ => None,
         }
     }
+    #[allow(dead_code)]
+    pub fn into_nil(self) -> Option<()> {
+        self.as_nil()
+    }
 
-    as_variant_method!(as_bool: Bool => bool);
-    as_variant_method!(as_int: Integer => isize);
-    as_variant_method!(as_float: Float => f64);
+    extract_variant_method!(as_bool(&self) { Self::Bool as (a): (&bool) });
+    extract_variant_method!(as_int(&self) { Self::Integer as (a): (&isize) });
+    extract_variant_method!(as_float(&self) { Self::Float as (a): (&f64) });
+    extract_variant_method!(as_str(&self) { Self::Str as (a): (&str) });
 
-    variant_method!(to_nil: Self::Nil => ());
-    variant_method!(as_float: Self::Float(val) => va);
+    extract_variant_method!(into_bool(self) { Self::Bool as (a): (bool) });
+    extract_variant_method!(into_int(self) { Self::Integer as (a): (isize) });
+    extract_variant_method!(into_float(self) { Self::Float as (a): (f64) });
+    extract_variant_method!(into_str(self) { Self::Str as (a): (String) });
 }
 
 impl TryFrom<Token> for Literal {
