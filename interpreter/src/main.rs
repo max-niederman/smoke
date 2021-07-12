@@ -5,6 +5,7 @@
 
 mod lexer;
 mod parser;
+mod interpreter;
 mod utils;
 
 use std::{
@@ -36,10 +37,16 @@ fn get_tokens(args: &[String]) -> io::Result<Vec<lexer::token::TokenExt>> {
     }
 }
 
-fn parse(tokens: &[lexer::token::TokenExt]) -> parser::error::Result<parser::ast::Ast> {
+fn parse(tokens: &[lexer::token::TokenExt]) -> parser::Result<parser::ast::Ast> {
     use parser::Parser;
 
     Parser::new(tokens.iter().cloned()).parse()
+}
+
+fn interpret(ast: parser::ast::Ast) -> interpreter::Result<parser::ast::Ast> {
+    use interpreter::Interpreter;
+
+    Interpreter::new().interpret(ast)
 }
 
 fn main() -> io::Result<()> {
@@ -49,8 +56,11 @@ fn main() -> io::Result<()> {
         let tokens = get_tokens(&args)?;
         eprintln!("Tokens: {:#?}", tokens);
 
-        let ast = parse(&tokens).unwrap();
-        eprintln!("Expression: {:#?}", ast);
+        let parsed = parse(&tokens).unwrap();
+        eprintln!("Parsed: {:#?}", parsed);
+
+        let res = interpret(parsed).unwrap();
+        eprintln!("Result: {:#?}", res);
     } else {
         loop {
             eprint!("> ");
@@ -60,10 +70,17 @@ fn main() -> io::Result<()> {
                 tokens.iter().map(|tke| &tke.token).collect::<Vec<_>>()
             );
 
-            match parse(&tokens) {
-                Ok(ast) => eprintln!("Expression: {:#?}", ast),
-                Err(err) => eprintln!("Parser error: {:#?}", err),
-            }
+            let parsed = match parse(&tokens) {
+                Ok(ast) => ast,
+                Err(err) => break eprintln!("Parser error: {:#?}", err),
+            };
+            eprintln!("Parsed: {:#?}", parsed);
+
+            let res = match interpret(parsed) {
+                Ok(ast) => ast,
+                Err(err) => break eprintln!("Runtime error: {:#?}", err),
+            };
+            eprintln!("Result: {:#?}", res);
         }
     }
 
