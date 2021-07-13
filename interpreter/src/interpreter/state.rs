@@ -3,6 +3,7 @@ use crate::parser::ast::Literal;
 use crate::{extract, extract_variant_method};
 use std::cell::RefCell;
 use std::cmp;
+use std::collections::HashMap;
 use std::fmt;
 use std::ops;
 use std::rc::Rc;
@@ -15,6 +16,8 @@ pub enum Value {
     Integer(isize),
     Float(f64),
     Str(String),
+
+    Scope(HashMap<String, ValueWrap>, Option<ValueWrap>),
 }
 
 impl Value {
@@ -38,11 +41,22 @@ impl Value {
     extract_variant_method!(as_int(&self) { Self::Integer as (a): (&isize) });
     extract_variant_method!(as_float(&self) { Self::Float as (a): (&f64) });
     extract_variant_method!(as_str(&self) { Self::Str as (a): (&str) });
+    extract_variant_method!(as_scope(&self) { Self::Scope as (a, b): (&HashMap<String, ValueWrap>, &Option<ValueWrap>) });
 
     extract_variant_method!(into_bool(self) { Self::Bool as (a): (bool) });
     extract_variant_method!(into_int(self) { Self::Integer as (a): (isize) });
     extract_variant_method!(into_float(self) { Self::Float as (a): (f64) });
     extract_variant_method!(into_str(self) { Self::Str as (a): (String) });
+    extract_variant_method!(into_scope(self) { Self::Scope as (a, b): (HashMap<String, ValueWrap>, Option<ValueWrap>) });
+
+    pub fn as_scope_mut(
+        &mut self,
+    ) -> Option<(&mut HashMap<String, ValueWrap>, &mut Option<ValueWrap>)> {
+        match self {
+            Self::Scope(body, tail) => Some((body, tail)),
+            _ => None,
+        }
+    }
 
     pub fn into_number(self) -> Result<NumberValue> {
         match self {

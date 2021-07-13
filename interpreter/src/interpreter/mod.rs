@@ -8,14 +8,19 @@ pub use state::{Value, ValueWrap};
 use std::collections::HashMap;
 
 pub struct Interpreter {
-    /// Stack of scopes
-    scopes: Vec<HashMap<String, ValueWrap>>,
+    /// Tree of values
+    value: ValueWrap,
+
+    /// Stack of references to values in the value tree
+    scopes: Vec<ValueWrap>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
+        let value = Value::Scope(HashMap::new(), None).wrapped();
         Self {
-            scopes: vec![HashMap::new()],
+            scopes: vec![value.clone()],
+            value,
         }
     }
 
@@ -23,21 +28,48 @@ impl Interpreter {
         match ast {
             Ast::Literal(lit) => Ok(Value::from(lit.clone()).wrapped()),
 
+            Ast::Declaration { name, value } => {
+                let value = self.interpret(value)?;
+                self.scopes
+                    .last()
+                    .unwrap()
+                    .borrow_mut()
+                    .as_scope_mut()
+                    .unwrap()
+                    .0
+                    .insert(name.clone(), value);
+                Ok(Value::Nil.wrapped())
+            }
+
             Ast::Reference(name) => self
                 .scopes
                 .iter()
                 .rev()
-                .find_map(|sc| sc.get(name))
+                .find_map(|sc| sc.borrow().as_scope().unwrap().0.get(name).cloned())
                 .ok_or(Error::ReferenceUndefinedError {
                     name: name.to_string(),
-                })
-                .cloned(),
+                }),
 
-            Ast::Grouping(children) => children
-                .iter()
-                .map(|child| self.interpret(child))
-                .reduce(Result::and)
-                .expect("grouping had less than one child"),
+            Ast::Grouping(children) => {
+                self.scopes
+                    .push(Value::Scope(HashMap::new(), None).wrapped());
+                let tail = children
+                    .iter()
+                    .map(|child| self.interpret(child))
+                    .reduce(Result::and)
+                    .expect("grouping had less than one child")?;
+
+                Ok(Value::Scope(
+                    self.scopes
+                        .pop()
+                        .and_then(|sc| sc.try_unwrap().ok())
+                        .and_then(Value::into_scope)
+                        .unwrap()
+                        .0,
+                    Some(tail),
+                )
+                .wrapped())
+            }
 
             Ast::Operation(op) => match op {
                 Operation::Unary { operator, operand } => {

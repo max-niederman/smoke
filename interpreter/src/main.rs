@@ -73,13 +73,19 @@ fn main() -> io::Result<()> {
 
             let parsed = match parse(&tokens) {
                 Ok(ast) => ast,
-                Err(err) => break eprintln!("Parser error: {:#?}", err),
+                Err(err) => {
+                    eprintln!("Parser error:\n{:#?}", err);
+                    continue;
+                }
             };
             eprintln!("Parsed: {:#?}", parsed);
 
             let res = match interpret(parsed) {
                 Ok(ast) => ast,
-                Err(err) => break eprintln!("Runtime error:\n{}", err),
+                Err(err) => {
+                    eprintln!("Runtime error:\n{}", err);
+                    continue;
+                }
             };
             eprintln!("Result: {:#?}", res);
         }
