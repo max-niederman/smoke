@@ -1,6 +1,5 @@
 use crate::lexer::Token;
 use crate::parser::{Error, Result};
-use crate::*;
 use std::convert::TryFrom;
 
 /// A literal Smoke value
@@ -12,7 +11,6 @@ pub enum Literal {
     Float(f64),
     Str(String),
 }
-
 
 impl TryFrom<Token> for Literal {
     type Error = Error;

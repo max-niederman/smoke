@@ -2,7 +2,7 @@ pub mod ast;
 pub mod error;
 
 use crate::lexer::token::{Token, TokenExt};
-use ast::{Ast, Operation, Operator};
+use ast::{Ast, Literal, Operation, Operator};
 pub use error::{Error, Result};
 use std::convert::TryInto;
 use std::iter::Peekable;
@@ -108,7 +108,7 @@ impl<S: Iterator<Item = TokenExt>> Parser<S> {
             }
             Token::CurlyLeft => {
                 self.source.next();
-                let mut exprs = vec![self.expression()?];
+                let mut exprs = vec![self.expression().unwrap_or(Ast::Literal(Literal::Nil))];
 
                 while self
                     .expect(|tke| tke.token == Token::Semicolon, "semicolon")

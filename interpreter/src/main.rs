@@ -1,11 +1,12 @@
 #![feature(iter_advance_by)]
+#![feature(result_cloned)]
 #![feature(maybe_uninit_extra)]
 #![feature(maybe_uninit_slice)]
 #![feature(maybe_uninit_uninit_array)]
 
+mod interpreter;
 mod lexer;
 mod parser;
-mod interpreter;
 mod utils;
 
 use std::{
@@ -43,10 +44,10 @@ fn parse(tokens: &[lexer::token::TokenExt]) -> parser::Result<parser::ast::Ast> 
     Parser::new(tokens.iter().cloned()).parse()
 }
 
-fn interpret(ast: parser::ast::Ast) -> interpreter::Result<parser::ast::Ast> {
+fn interpret(ast: parser::ast::Ast) -> interpreter::Result<interpreter::ValueWrap> {
     use interpreter::Interpreter;
 
-    Interpreter::new().interpret(ast)
+    Interpreter::new().interpret(&ast)
 }
 
 fn main() -> io::Result<()> {
@@ -78,7 +79,7 @@ fn main() -> io::Result<()> {
 
             let res = match interpret(parsed) {
                 Ok(ast) => ast,
-                Err(err) => break eprintln!("Runtime error: {:#?}", err),
+                Err(err) => break eprintln!("Runtime error:\n{}", err),
             };
             eprintln!("Result: {:#?}", res);
         }
