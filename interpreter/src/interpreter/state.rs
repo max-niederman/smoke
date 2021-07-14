@@ -1,5 +1,5 @@
 use super::{Error, Result};
-use crate::parser::ast::Literal;
+use crate::parser::ast::{Ast, Literal};
 use crate::{extract, extract_variant_method};
 use std::cell::RefCell;
 use std::cmp;
@@ -16,6 +16,8 @@ pub enum Value {
     Integer(isize),
     Float(f64),
     Str(String),
+
+    Function(Vec<String>, Ast),
 
     Scope(HashMap<String, ValueWrap>, Option<ValueWrap>),
 }
@@ -41,12 +43,14 @@ impl Value {
     extract_variant_method!(as_int(&self) { Self::Integer as (a): (&isize) });
     extract_variant_method!(as_float(&self) { Self::Float as (a): (&f64) });
     extract_variant_method!(as_str(&self) { Self::Str as (a): (&str) });
+    extract_variant_method!(as_func(&self) { Self::Function as (a, b): (&Vec<String>, &Ast) });
     extract_variant_method!(as_scope(&self) { Self::Scope as (a, b): (&HashMap<String, ValueWrap>, &Option<ValueWrap>) });
 
     extract_variant_method!(into_bool(self) { Self::Bool as (a): (bool) });
     extract_variant_method!(into_int(self) { Self::Integer as (a): (isize) });
     extract_variant_method!(into_float(self) { Self::Float as (a): (f64) });
     extract_variant_method!(into_str(self) { Self::Str as (a): (String) });
+    extract_variant_method!(into_func(self) { Self::Function as (a, b): (Vec<String>, Ast) });
     extract_variant_method!(into_scope(self) { Self::Scope as (a, b): (HashMap<String, ValueWrap>, Option<ValueWrap>) });
 
     pub fn as_scope_mut(

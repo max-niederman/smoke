@@ -4,7 +4,7 @@ use crate::parser::{Error, Result};
 use std::convert::TryFrom;
 
 /// An operation augmenting one or more expressions
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Operation {
     Unary {
         operator: Operator,
@@ -33,7 +33,7 @@ impl Operation {
 }
 
 /// Enumeration of builtin operators
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Operator {
     // Unaries
     Not,

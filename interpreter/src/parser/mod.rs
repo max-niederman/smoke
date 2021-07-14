@@ -19,7 +19,7 @@ macro_rules! la_binary {
             let mut expr = self.$sub()?;
 
             while matches!(
-                self.source.peek().map(|tke| tke.token.clone()),
+                self.source.peek().map(|tke| &tke.token),
                 Some($( $op )|+)
             ) {
                 expr = Ast::Operation(
@@ -71,7 +71,33 @@ impl<S: Iterator<Item = TokenExt>> Parser<S> {
                 self.unary()?,
             )))
         } else {
-            self.primary()
+            self.apply()
+        }
+    }
+
+    fn apply(&mut self) -> Result<Ast> {
+        let expr = self.primary()?;
+
+        match self.source.peek().map(|tke| &tke.token) {
+            Some(Token::ParenLeft) => {
+                self.source.next();
+
+                let mut arguments: Vec<Ast> = Vec::new();
+                while let Ok(arg) = self.expression() {
+                    arguments.push(arg);
+                    self.expect(|tke| tke.token == Token::Comma, "argument seperator ','")?;
+                }
+                self.expect(
+                    |tke| tke.token == Token::ParenRight,
+                    "closing delimiter ')'",
+                )?;
+
+                Ok(Ast::FunctionApplication {
+                    function: Box::new(expr),
+                    arguments,
+                })
+            }
+            _ => Ok(expr),
         }
     }
 
@@ -86,7 +112,7 @@ impl<S: Iterator<Item = TokenExt>> Parser<S> {
             .source
             .peek()
             .ok_or(Error::UnexpectedToken {
-                expected: "literal or grouping".into(),
+                expected: "literal, operation, grouping, or declaration".into(),
                 found: "end of source".into(),
             })?
             .token
@@ -169,7 +195,7 @@ impl<S: Iterator<Item = TokenExt>> Parser<S> {
                 }
                 self.expect(
                     |tke| tke.token == Token::ParenRight,
-                    "closing delimiter ')'",
+                    "argument binding (identifier) or closing delimiter ')'",
                 )?;
 
                 Ok(Ast::Declaration {

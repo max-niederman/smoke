@@ -3,7 +3,7 @@ use crate::parser::{Error, Result};
 use std::convert::TryFrom;
 
 /// A literal Smoke value
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Literal {
     Nil,
     Bool(bool),

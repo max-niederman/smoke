@@ -6,7 +6,7 @@ pub use literal::Literal;
 pub use operation::{Operation, Operator};
 
 /// A Smoke Abstract Syntax Tree
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Ast {
     /// A literal value
     Literal(Literal),
@@ -27,6 +27,12 @@ pub enum Ast {
     Function {
         arguments: Vec<String>,
         body: Box<Self>,
+    },
+
+    /// The application of a function to one or more values
+    FunctionApplication {
+        function: Box<Self>,
+        arguments: Vec<Self>,
     },
 }
 

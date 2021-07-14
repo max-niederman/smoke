@@ -8,19 +8,14 @@ pub use state::{Value, ValueWrap};
 use std::collections::HashMap;
 
 pub struct Interpreter {
-    /// Tree of values
-    value: ValueWrap,
-
     /// Stack of references to values in the value tree
     scopes: Vec<ValueWrap>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        let value = Value::Scope(HashMap::new(), None).wrapped();
         Self {
-            scopes: vec![value.clone()],
-            value,
+            scopes: vec![Value::Scope(HashMap::new(), None).wrapped()],
         }
     }
 
@@ -57,13 +52,15 @@ impl Interpreter {
                     .iter()
                     .map(|child| self.interpret(child))
                     .reduce(Result::and)
-                    .expect("grouping had less than one child")?;
+                    .expect("grouping has a tail")?;
 
                 Ok(Value::Scope(
                     self.scopes
                         .pop()
-                        .and_then(|sc| sc.try_unwrap().ok())
-                        .and_then(Value::into_scope)
+                        .expect("scopes on the stack")
+                        .try_unwrap()
+                        .expect("no strong references to evaluated scope")
+                        .into_scope()
                         .unwrap()
                         .0,
                     Some(tail),
@@ -135,7 +132,31 @@ impl Interpreter {
             }
             .map(ValueWrap::wrapping),
 
-            _ => unimplemented!(),
+            Ast::Function { arguments, body } => {
+                Ok(Value::Function(arguments.clone(), *body.clone()).wrapped())
+            }
+
+            Ast::FunctionApplication { function, arguments } => {
+                let fn_val = self.interpret(function)?;
+                let fn_data = fn_val.borrow().clone().into_func().ok_or(Error::TypeError {
+                    expected: "function".into(),
+                    found: format!("{:?}", function),
+                })?;
+
+                let mut interp_args = Vec::new();
+                for raw in arguments {
+                    interp_args.push(self.interpret(raw)?);
+                }
+
+                self.scopes.push(Value::Scope(
+                    fn_data.0.clone().into_iter().zip(interp_args).collect(),
+                    None
+                ).wrapped());
+                let returned = self.interpret(&fn_data.1)?;
+                self.scopes.pop().expect("scopes on the stack");
+
+                Ok(returned)
+            }
         }
     }
 }

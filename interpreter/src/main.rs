@@ -1,8 +1,9 @@
-#![feature(iter_advance_by)]
 #![feature(result_cloned)]
 #![feature(maybe_uninit_extra)]
 #![feature(maybe_uninit_slice)]
 #![feature(maybe_uninit_uninit_array)]
+#![feature(box_into_inner)]
+#![feature(iter_advance_by)]
 
 mod interpreter;
 mod lexer;
